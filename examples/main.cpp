@@ -1,3 +1,5 @@
+#include <numbers>
+
 #include <Igor/Logging.hpp>
 #include <Igor/Math.hpp>
 #include <Igor/Timer.hpp>
@@ -52,7 +54,7 @@ class Lattice {
   static constexpr Float dt = 1.0;
   static constexpr Float dx = 1.0;
   static constexpr Float dy = 1.0;
-  Float cs;
+  static constexpr Float cs = std::numbers::inv_sqrt3 * dx / dt;  // Speed of sound
   Field1D<Float, NX> x;
   Field1D<Float, NY> y;
   D2Q9 pop{};
@@ -61,8 +63,7 @@ class Lattice {
   Field2D<Float, NX, NY> U;
   Field2D<Float, NX, NY> V;
 
-  constexpr Lattice() noexcept
-      : cs(1.0 / 3.0 * Igor::sqr(dx) / Igor::sqr(dt)) {
+  constexpr Lattice() noexcept {
     for_each_a(x, [&](Index i) { x(i) = 0.0 + static_cast<Float>(i) * dx; });
     for_each_a(y, [&](Index j) { y(j) = 0.0 + static_cast<Float>(j) * dy; });
   }
