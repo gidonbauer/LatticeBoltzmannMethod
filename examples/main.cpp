@@ -98,12 +98,12 @@ constexpr auto f_eq(const Lattice& lattice, Index i, Index j, size_t q) {
               0,
               lattice.pop.NUM_VEL);
 
-  const Float u_dot_ck = lattice.U(i, j) * lattice.pop.cU[q] + lattice.V(i, j) * lattice.pop.cV[q];
-  const Float u_dot_u  = Igor::sqr(lattice.U(i, j)) + Igor::sqr(lattice.V(i, j));
+  const Float u_dot_c = lattice.U(i, j) * lattice.pop.cU[q] + lattice.V(i, j) * lattice.pop.cV[q];
+  const Float u_dot_u = Igor::sqr(lattice.U(i, j)) + Igor::sqr(lattice.V(i, j));
 
   return lattice.pop.w[q] * lattice.rho(i, j) *
-         (1.0 + u_dot_ck / Igor::sqr(lattice.cs) +
-          Igor::sqr(u_dot_ck) / (2.0 * Igor::sqr(Igor::sqr(lattice.cs))) -
+         (1.0 + u_dot_c / Igor::sqr(lattice.cs) +
+          Igor::sqr(u_dot_c) / (2.0 * Igor::sqr(Igor::sqr(lattice.cs))) -
           u_dot_u / (2.0 * Igor::sqr(lattice.cs)));
 }
 
@@ -141,8 +141,8 @@ constexpr void collision(Lattice& lattice) {
 // =================================================================================================
 constexpr void streaming(Lattice& lattice) {
   auto regular_update = [](Lattice& lattice, Index i, Index j, size_t q) {
-    const Index ii         = i + static_cast<Index>(lattice.pop.cU[q]);
-    const Index jj         = j + static_cast<Index>(lattice.pop.cV[q]);
+    const Index ii         = i - static_cast<Index>(lattice.pop.cU[q]);
+    const Index jj         = j - static_cast<Index>(lattice.pop.cV[q]);
     lattice.pop.f(i, j)[q] = lattice.pop.f_star(ii, jj)[q];
   };
 
