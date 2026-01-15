@@ -1,0 +1,138 @@
+#ifndef LATTICE_BOLTZMANN_METHOD_FOR_EACH_HPP_
+#define LATTICE_BOLTZMANN_METHOD_FOR_EACH_HPP_
+
+#include <algorithm>
+#ifdef LBM_STDPAR
+#include <execution>
+#endif  // LBM_STDPAR
+
+#include "Container.hpp"
+#include "IotaIter.hpp"
+#include "Macros.hpp"
+#include "StdparOpenMP.hpp"
+
+#ifndef LBM_PARALLEL_THRESHOLD
+constexpr Index LBM_PARALLEL_THRESHOLD_COUNT = 1000;
+#else
+static_assert(std::is_convertible_v<std::remove_cvref_t<decltype(LBM_PARALLEL_THRESHOLD)>, Index>,
+              "LBM_PARALLEL_THRESHOLD must have a value that must be convertible to Index.");
+constexpr Index LBM_PARALLEL_THRESHOLD_COUNT = LBM_PARALLEL_THRESHOLD;
+#endif  // LBM_PARALLEL_THRESHOLD
+
+// -------------------------------------------------------------------------------------------------
+enum class Exec : uint8_t { Serial, Parallel, ParallelDynamic, ParallelGPU };
+
+// -------------------------------------------------------------------------------------------------
+template <typename FUNC>
+concept ForEachFunc1D = requires(FUNC f) {
+  { f(std::declval<Index>()) } -> std::same_as<void>;
+};
+
+template <Exec EXEC, Index NITER>
+consteval auto get_exec_policy() noexcept {
+  if constexpr (EXEC == Exec::Serial || NITER < LBM_PARALLEL_THRESHOLD_COUNT) {
+    return StdparOpenMP::Serial;
+  } else if constexpr (EXEC == Exec::Parallel) {
+    return StdparOpenMP::Parallel;
+  } else if constexpr (EXEC == Exec::ParallelDynamic) {
+    return StdparOpenMP::ParallelDynamic;
+  } else if constexpr (EXEC == Exec::ParallelGPU) {
+#ifdef LBM_STDPAR
+    return std::execution::par_unseq;
+#else
+    return StdparOpenMP::Parallel;
+#endif  // LBM_STDPAR
+  }
+
+  Igor::Panic("Unreachable");
+  std::unreachable();
+}
+
+// -------------------------------------------------------------------------------------------------
+template <Index I_MIN, Index I_MAX, Exec EXEC = Exec::Serial, ForEachFunc1D FUNC>
+LBM_ALWAYS_INLINE void for_each(FUNC&& f) noexcept {
+  std::for_each(get_exec_policy<EXEC, I_MAX - I_MIN>(),
+                IotaIter<Index>(I_MIN),
+                IotaIter<Index>(I_MAX),
+                std::forward<FUNC&&>(f));
+}
+
+// -------------------------------------------------------------------------------------------------
+template <Exec EXEC = Exec::Serial, typename Float, Index N, Index NGHOST, ForEachFunc1D FUNC>
+LBM_ALWAYS_INLINE void for_each_i([[maybe_unused]] const Field1D<Float, N, NGHOST>& _,
+                                  FUNC&& f) noexcept {
+  for_each<0, N, EXEC>(std::forward<FUNC&&>(f));
+}
+
+// -------------------------------------------------------------------------------------------------
+template <Exec EXEC = Exec::Serial, typename Float, Index N, Index NGHOST, ForEachFunc1D FUNC>
+LBM_ALWAYS_INLINE void for_each_a([[maybe_unused]] const Field1D<Float, N, NGHOST>& _,
+                                  FUNC&& f) noexcept {
+  for_each<-NGHOST, N + NGHOST, EXEC>(std::forward<FUNC&&>(f));
+}
+
+// -------------------------------------------------------------------------------------------------
+template <typename FUNC>
+concept ForEachFunc2D = requires(FUNC f) {
+  { f(std::declval<Index>(), std::declval<Index>()) } -> std::same_as<void>;
+};
+
+// -------------------------------------------------------------------------------------------------
+template <Index I_MIN,
+          Index I_MAX,
+          Index J_MIN,
+          Index J_MAX,
+          Exec EXEC     = Exec::Serial,
+          Layout LAYOUT = Layout::C,
+          ForEachFunc2D FUNC>
+LBM_ALWAYS_INLINE void for_each(FUNC&& f) noexcept {
+  constexpr auto from_linear_index = [](Index idx) noexcept -> std::pair<Index, Index> {
+    if constexpr (LAYOUT == Layout::C) {
+      return {
+          idx / (J_MAX - J_MIN) + I_MIN,
+          idx % (J_MAX - J_MIN) + J_MIN,
+      };
+    } else {
+      return {
+          idx % (I_MAX - I_MIN) + I_MIN,
+          idx / (I_MAX - I_MIN) + J_MIN,
+      };
+    }
+  };
+
+  std::for_each(get_exec_policy<EXEC, (I_MAX - I_MIN) * (J_MAX - J_MIN)>(),
+                IotaIter<Index>(0),
+                IotaIter<Index>((I_MAX - I_MIN) * (J_MAX - J_MIN)),
+                [&](Index idx) {
+                  const auto [i, j] = from_linear_index(idx);
+                  f(i, j);
+                });
+}
+
+// -------------------------------------------------------------------------------------------------
+template <Exec EXEC = Exec::Serial,
+          typename Float,
+          Index NX,
+          Index NY,
+          Index NGHOST,
+          Layout LAYOUT,
+          ForEachFunc2D FUNC>
+LBM_ALWAYS_INLINE void for_each_i([[maybe_unused]] const Field2D<Float, NX, NY, NGHOST, LAYOUT>& _,
+                                  FUNC&& f) noexcept {
+  for_each<0, NX, 0, NY, EXEC, LAYOUT>(std::forward<FUNC&&>(f));
+}
+
+// -------------------------------------------------------------------------------------------------
+template <Exec EXEC = Exec::Serial,
+          typename Float,
+          Index NX,
+          Index NY,
+          Index NGHOST,
+          Layout LAYOUT,
+          ForEachFunc2D FUNC>
+LBM_ALWAYS_INLINE void for_each_a([[maybe_unused]] const Field2D<Float, NX, NY, NGHOST, LAYOUT>& _,
+                                  FUNC&& f) noexcept {
+  for_each<-NGHOST, NX + NGHOST, -NGHOST, NY + NGHOST, EXEC, LAYOUT>(std::forward<FUNC&&>(f));
+}
+
+#endif  // LATTICE_BOLTZMANN_METHOD_FOR_EACH_HPP_

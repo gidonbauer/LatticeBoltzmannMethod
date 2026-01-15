@@ -1,0 +1,16 @@
+.DS_Store
+.cache/
+.vscode/
+.idea/
+
+*.swp
+*.env
+*.slurm
+
+output*/
+
+*.stdout
+*.stderr
+scorep-*
+
+build*/

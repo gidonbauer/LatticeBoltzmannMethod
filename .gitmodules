@@ -1,0 +1,3 @@
+[submodule "Submodules/Igor"]
+	path = Submodules/Igor
+	url = git@github.com:gidonbauer/Igor.git
