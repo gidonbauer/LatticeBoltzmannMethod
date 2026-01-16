@@ -1,5 +1,3 @@
-#include <numbers>
-
 #include <Igor/Logging.hpp>
 #include <Igor/Math.hpp>
 #include <Igor/Timer.hpp>
@@ -11,19 +9,23 @@
 #include "Utility.hpp"
 
 // = Setup =========================================================================================
-using Float              = double;
-constexpr Index NX       = 250;
-constexpr Index NY       = 50;
+using Float                 = double;
+constexpr Index NY          = 100;
+constexpr Index NX          = 10 * NY;
 
-constexpr Float Re       = 500.0;                   // Reynolds number
-constexpr Float H        = static_cast<Float>(NY);  // Channel height
-constexpr Float NU       = 1e-1;            // 5e-4;                    // Kinematic viscosity
-constexpr Float TAU      = 3.0 * NU + 0.5;  // Relaxation time
-constexpr Float U        = Re * NU / H;     // Inlet velocity
+constexpr Float H           = static_cast<Float>(NY);  // Channel height
+constexpr Float NU          = 1e-1;                    // Kinematic viscosity
+constexpr Float TAU         = 3.0 * NU + 0.5;          // Relaxation time
+constexpr Float U_WALL      = 0.01;                    // Wall velocity
+constexpr Float RE          = U_WALL * H / NU;         // Reynolds number
 
-constexpr Float T_END    = 1e4;
-constexpr Float DT_WRITE = 1e2;
+constexpr Index NSTEPS      = 100LL * 100LL;
+constexpr Index WRITE_STEPS = 10;
 // = Setup =========================================================================================
+
+constexpr auto step2time(Float t_end, Index step) -> Float {
+  return t_end / static_cast<Float>(NSTEPS) * static_cast<Float>(step);
+}
 
 // =================================================================================================
 template <size_t NUM_VEL>
@@ -43,11 +45,11 @@ min_max_f(const Field2D<std::array<Float, NUM_VEL>, NX, NY>& f, Float& min, Floa
 
 // =================================================================================================
 auto main() -> int {
-  Igor::Info("Re  = {:.6e}", Re);
-  Igor::Info("H   = {:.6e}", H);
-  Igor::Info("NU  = {:.6e}", NU);
-  Igor::Info("TAU = {:.6e}", TAU);
-  Igor::Info("U   = {:.6e}", U);
+  Igor::Info("H      = {:.6e}", H);
+  Igor::Info("NU     = {:.6e}", NU);
+  Igor::Info("TAU    = {:.6e}", TAU);
+  Igor::Info("U_WALL = {:.6e}", U_WALL);
+  Igor::Info("Re     = {:.6e}", RE);
 
   // = Create output directory =====================================================================
   const auto OUTPUT_DIR = get_output_directory();
@@ -104,7 +106,7 @@ auto main() -> int {
   data_writer.write(t);
 
   Igor::ScopeTimer timer("Solver");
-  while (t < T_END) {
+  for (Index step = 1; step <= NSTEPS; ++step) {
     calc_density_and_velocity(lattice);
 
     collision(lattice, TAU);
@@ -139,9 +141,8 @@ auto main() -> int {
               const Index jj               = j + static_cast<Index>(lattice.cV[q]);
               const size_t q_inv           = lattice.inverse_direction[q];
 
-              const Float U_wall           = 10.0;
               const Float moving_wall_corr = 2.0 * lattice.w[q] * lattice.rho(i, j) *
-                                             (lattice.cU[q] * U_wall) / Igor::sqr(lattice.cs);
+                                             (lattice.cU[q] * U_WALL) / Igor::sqr(lattice.cs);
               lattice.f_star(ii, jj)[q_inv] = lattice.f_star(i, j)[q] - moving_wall_corr;
             }
             break;
@@ -230,7 +231,7 @@ auto main() -> int {
 
     streaming(lattice);
 
-    t += lattice.dt;
+    t = step2time(10.0, step);
     min_max_f(lattice.f, f_min, f_max);
     rho_min = min(lattice.rho);
     U_min   = min(lattice.U);
@@ -239,7 +240,7 @@ auto main() -> int {
     U_max   = max(lattice.U);
     V_max   = max(lattice.V);
     monitor.write();
-    if (should_save(t, lattice.dt, DT_WRITE, T_END)) { data_writer.write(t); }
+    if (should_save(step, WRITE_STEPS, NSTEPS)) { data_writer.write(t); }
   }
   Igor::Info("Simulation complete.");
 }

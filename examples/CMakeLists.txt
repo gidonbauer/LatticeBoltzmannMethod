@@ -1,5 +1,7 @@
 set(executables
-  main
+  Couette
+  Conversion
+  # main
 )
 
 foreach(exec ${executables})
