@@ -8,7 +8,7 @@
 using Float            = double;
 constexpr Index NY     = 100;
 constexpr Index NX     = 10 * NY;
-constexpr Index NSTEPS = 1000;
+constexpr Index NSTEPS = 10'000;
 
 constexpr Float X_MIN  = 0.0;
 constexpr Float X_MAX  = 10.0;
@@ -35,19 +35,54 @@ struct LatticeParameters {
   static constexpr Float cs = std::numbers::inv_sqrt3;
 };
 
-constexpr auto physical2lattice(const PhysicalParameters& p) -> LatticeParameters {
-  const auto Ct   = p.dt;
-  const auto Cl   = p.dx;
-  const auto Cu   = Cl / Ct;
-  const auto Cnu  = Cl * Cu;
+// =================================================================================================
+class Conversion {
+  Float Ct;
+  Float Cl;
+  Float Crho;
+  Float Cu;
+  Float Cnu;
 
-  const auto nu_l = Cnu * p.nu;
-  return LatticeParameters{
-      .tau = 3.0 * nu_l + 0.5,
-      .u   = Cu * p.u,
-  };
-}
+  PhysicalParameters pp;
+  LatticeParameters lp;
 
+  static constexpr auto l2p(Index a, Float Ca) -> Float { return l2p(static_cast<Float>(a), Ca); }
+  static constexpr auto l2p(Float a, Float Ca) -> Float { return a * Ca; }
+  static constexpr auto p2l(Float a, Float Ca) -> Float { return a * Ca; }
+
+ public:
+  constexpr Conversion(const PhysicalParameters& p) noexcept
+      : Ct(p.dt),
+        Cl(p.dx),
+        Crho(p.rho),
+        Cu(Cl / Ct),
+        Cnu(Cl * Cu),
+        pp(p),
+        lp({
+            .tau = 3.0 * visc_p2l(p.nu) + 0.5,
+            .u   = velocity_p2l(p.u),
+        }) {}
+
+  [[nodiscard]] constexpr auto time_l2p(Index time) const -> Float { return l2p(time, Ct); }
+  [[nodiscard]] constexpr auto time_p2l(Float time) const -> Float { return p2l(time, Ct); }
+
+  [[nodiscard]] constexpr auto length_l2p(Index l) const -> Float { return l2p(l, Cl); }
+  [[nodiscard]] constexpr auto length_p2l(Float l) const -> Float { return p2l(l, Cl); }
+
+  [[nodiscard]] constexpr auto density_l2p(Float rho) const -> Float { return l2p(rho, Crho); }
+  [[nodiscard]] constexpr auto density_p2l(Float rho) const -> Float { return p2l(rho, Crho); }
+
+  [[nodiscard]] constexpr auto velocity_l2p(Float u) const -> Float { return l2p(u, Cu); }
+  [[nodiscard]] constexpr auto velocity_p2l(Float u) const -> Float { return p2l(u, Cu); }
+
+  [[nodiscard]] constexpr auto visc_l2p(Float nu) const -> Float { return l2p(nu, Cnu); }
+  [[nodiscard]] constexpr auto visc_p2l(Float nu) const -> Float { return p2l(nu, Cnu); }
+
+  [[nodiscard]] constexpr auto physical_params() const -> const PhysicalParameters& { return pp; }
+  [[nodiscard]] constexpr auto lattice_params() const -> const LatticeParameters& { return lp; }
+};
+
+// =================================================================================================
 auto main() -> int {
   constexpr PhysicalParameters p{
       .dx  = (X_MAX - X_MIN) / static_cast<Float>(NX - 1),
@@ -56,8 +91,8 @@ auto main() -> int {
       .rho = 0.9,
       .u   = 1.0,
   };
-
-  constexpr LatticeParameters l = physical2lattice(p);
+  constexpr Conversion conv(p);
+  constexpr LatticeParameters l = conv.lattice_params();
 
   Igor::Info("Simulation setup:");
   Igor::Info("  NX     = {}", NX);
