@@ -11,20 +11,20 @@
 
 // = Setup =========================================================================================
 using Float                 = double;
-constexpr Index NY          = 50;
+constexpr Index NY          = 100;
 constexpr Index NX          = 10 * (NY - 1) + 1;
 
-constexpr Index NSTEPS      = 5000;
-constexpr Index WRITE_STEPS = 50;
+constexpr Index NSTEPS      = 1000;
+constexpr Index WRITE_STEPS = 10;
 
 constexpr Float X_MIN       = 0.0;  // Physical domain size
 constexpr Float X_MAX       = 10.0;
 constexpr Float Y_MIN       = 0.0;
 constexpr Float Y_MAX       = 1.0;
-constexpr Float T_END       = 10.0;        // Physical t_end
-constexpr Float U_WALL      = 1.0;         // Physical wall velocity
+constexpr Float T_END       = 1.0;         // Physical t_end
+constexpr Float U_IN        = 1.0;         // Physical wall velocity
 constexpr Float RHO         = 0.9;         // Physical density
-constexpr Float NU          = 1e-1 / RHO;  // Physical kinematic viscosity
+constexpr Float NU          = 1e-3 / RHO;  // Physical kinematic viscosity
 // = Setup =========================================================================================
 
 // =================================================================================================
@@ -69,8 +69,8 @@ auto main() -> int {
   Igor::Info("  dt  = {:.6e}", physical_params.dt);
   Igor::Info("  nu  = {:.6e}", physical_params.nu);
   Igor::Info("  rho = {:.6e}", physical_params.rho);
-  Igor::Info("  u   = {:.6e}", U_WALL);
-  Igor::Info("  Re  = {:.6e}", (Y_MAX - Y_MIN) * U_WALL / physical_params.nu);
+  Igor::Info("  u   = {:.6e}", U_IN);
+  Igor::Info("  Re  = {:.6e}", (Y_MAX - Y_MIN) * U_IN / physical_params.nu);
   std::cout << '\n';
   Igor::Info("Lattice parameters:");
   Igor::Info("  dx  = {:.6e}", lattice_params.dx);
@@ -79,9 +79,9 @@ auto main() -> int {
   Igor::Info("  cs  = {:.6e}", lattice_params.cs);
   Igor::Info("  nu  = {:.6e}", lattice_params.nu);
   Igor::Info("  tau = {:.6e}", lattice_params.tau);
-  Igor::Info("  u   = {:.6e}", convert.velocity_p2l(U_WALL));
+  Igor::Info("  u   = {:.6e}", convert.velocity_p2l(U_IN));
   Igor::Info("  Re  = {:.6e}",
-             static_cast<Float>(NY - 1) * convert.velocity_p2l(U_WALL) / lattice_params.nu);
+             static_cast<Float>(NY - 1) * convert.velocity_p2l(U_IN) / lattice_params.nu);
   std::cout << '\n';
 
   // = Create output directory =====================================================================
@@ -148,7 +148,7 @@ auto main() -> int {
 
   // = Initialize ==================================================================================
   fill(lattice.rho, 1.0);
-  fill(lattice.U, 0.0);
+  fill(lattice.U, convert.velocity_p2l(U_IN));
   fill(lattice.V, 0.0);
   for_each_i<Exec::Parallel>(lattice.f, [&](Index i, Index j) {
     for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
@@ -187,7 +187,7 @@ auto main() -> int {
     for_each<0, NX>([&](Index i) {
       const Index j = NY - 1;
       for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-#if 0
+#if 1
         // Bounce back
         switch (q) {
           case lattice.N:

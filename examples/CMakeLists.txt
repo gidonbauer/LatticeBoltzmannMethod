@@ -1,4 +1,5 @@
 set(executables
+  Channel
   Couette
   Conversion
   # main
