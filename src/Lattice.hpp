@@ -7,6 +7,7 @@
 #include <Igor/Math.hpp>
 
 #include "Container.hpp"
+#include "Conversion.hpp"
 #include "ForEach.hpp"
 
 // =================================================================================================
@@ -14,12 +15,7 @@ template <typename Float, Index NX, Index NY>
 class LatticeD2Q9 {
  public:
   static constexpr Index NGHOST = 1;
-  static constexpr Float dt     = 1.0;
-  static constexpr Float dx     = 1.0;
-  static constexpr Float dy     = 1.0;
-  static constexpr Float cs     = std::numbers::inv_sqrt3 * dx / dt;  // Speed of sound
-  Field1D<Float, NX> x;
-  Field1D<Float, NY> y;
+  LatticeParameters<Float> params;
 
   // = D2Q9 ======================================
   enum Dir : size_t { C, E, W, N, S, NE, SW, NW, SE, NUM_VEL };
@@ -48,10 +44,8 @@ class LatticeD2Q9 {
   Field2D<Float, NX, NY> V;    // Velocity y
   // = Macroscopic quantities ====================
 
-  constexpr LatticeD2Q9() noexcept {
-    for_each_a(x, [&](Index i) { x(i) = 0.0 + static_cast<Float>(i) * dx; });
-    for_each_a(y, [&](Index j) { y(j) = 0.0 + static_cast<Float>(j) * dy; });
-  }
+  constexpr LatticeD2Q9(LatticeParameters<Float> params) noexcept
+      : params(std::move(params)) {}
 };
 
 // =================================================================================================
@@ -89,19 +83,20 @@ constexpr auto f_eq(const LatticeD2Q9<Float, NX, NY>& lattice, Index i, Index j,
   const Float u_dot_u = Igor::sqr(lattice.U(i, j)) + Igor::sqr(lattice.V(i, j));
 
   return lattice.w[q] * lattice.rho(i, j) *
-         (1.0 + u_dot_c / Igor::sqr(lattice.cs) +
-          Igor::sqr(u_dot_c) / (2.0 * Igor::sqr(Igor::sqr(lattice.cs))) -
-          u_dot_u / (2.0 * Igor::sqr(lattice.cs)));
+         (1.0 + u_dot_c / Igor::sqr(lattice.params.cs) +
+          Igor::sqr(u_dot_c) / (2.0 * Igor::sqr(Igor::sqr(lattice.params.cs))) -
+          u_dot_u / (2.0 * Igor::sqr(lattice.params.cs)));
 }
 
 // =================================================================================================
 template <typename Float, Index NX, Index NY>
-constexpr void collision(LatticeD2Q9<Float, NX, NY>& lattice, Float tau) {
+constexpr void collision(LatticeD2Q9<Float, NX, NY>& lattice) {
   // Step 1: Collision
   for_each_i<Exec::Parallel>(lattice.f, [&](Index i, Index j) {
     for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
       lattice.f_star(i, j)[q] =
-          lattice.f(i, j)[q] - 1.0 / tau * (lattice.f(i, j)[q] - f_eq(lattice, i, j, q));
+          lattice.f(i, j)[q] -
+          1.0 / lattice.params.tau * (lattice.f(i, j)[q] - f_eq(lattice, i, j, q));
     }
   });
 }
