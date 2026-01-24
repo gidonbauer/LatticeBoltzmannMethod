@@ -5,6 +5,7 @@ project(FluidSolver LANGUAGES CXX)
 option(LBM_FAST "Enable unsafe optimizations." OFF)
 option(LBM_SANITIZE "Enable sanitizers." OFF)
 option(LBM_USE_SCOREP "Enable profiling using Score-P." OFF)
+option(LBM_BUILD_BENCH "Build benchmarks." OFF)
 
 # = Add dependencies ===============================================================================
 # = Igor =========================================
@@ -22,3 +23,8 @@ include(cmake/compiler_flags.cmake)
 add_compile_definitions(LBM_BASE_DIR="${CMAKE_SOURCE_DIR}")
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/examples/)
+
+if (LBM_BUILD_BENCH)
+  find_package(benchmark REQUIRED)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/bench/)
+endif()

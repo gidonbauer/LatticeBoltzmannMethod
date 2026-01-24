@@ -14,14 +14,14 @@ using Float                 = double;
 constexpr Index NY          = 100;
 constexpr Index NX          = 10 * (NY - 1) + 1;
 
-constexpr Index NSTEPS      = 1000;
-constexpr Index WRITE_STEPS = 10;
+constexpr Index NSTEPS      = 10000;
+constexpr Index WRITE_STEPS = 100;
 
 constexpr Float X_MIN       = 0.0;  // Physical domain size
 constexpr Float X_MAX       = 10.0;
 constexpr Float Y_MIN       = 0.0;
 constexpr Float Y_MAX       = 1.0;
-constexpr Float T_END       = 1.0;         // Physical t_end
+constexpr Float T_END       = 10.0;        // Physical t_end
 constexpr Float U_IN        = 1.0;         // Physical wall velocity
 constexpr Float RHO         = 0.9;         // Physical density
 constexpr Float NU          = 1e-3 / RHO;  // Physical kinematic viscosity
