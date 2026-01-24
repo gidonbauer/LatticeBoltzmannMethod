@@ -128,7 +128,7 @@ static void bench_for_each_std_algo(benchmark::State& state) noexcept {
 // = Using regular for loops with OpenMP ===========================================================
 template <Index I_MIN, Index I_MAX, ForEachFunc1D FUNC>
 LBM_ALWAYS_INLINE void for_each_omp_for(FUNC&& f) noexcept {
-#pragma omp parallel for
+#pragma omp parallel for if (I_MAX - I_MIN > LBM_PARALLEL_THRESHOLD_COUNT)
   for (Index i = I_MIN; i < I_MAX; ++i) {
     f(i);
   }
@@ -138,7 +138,7 @@ template <typename Float, Index NX, Index NY, ForEachFunc2D FUNC>
 LBM_ALWAYS_INLINE void
 for_each_i_omp_for([[maybe_unused]] const Field2D<Float, NX, NY, 0, Layout::C>& _,
                    FUNC&& f) noexcept {
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) if (NX * NY > LBM_PARALLEL_THRESHOLD_COUNT)
   for (Index i = 0; i < NX; ++i) {
     for (Index j = 0; j < NY; ++j) {
       f(i, j);
@@ -277,7 +277,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
   for (auto _ : state) {
     for (Index step = 0; step < BENCH_STEPS; ++step) {
       // calc_density_and_velocity
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) if (NX * NY > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index i = 0; i < NX; ++i) {
         for (Index j = 0; j < NY; ++j) {
           lattice.rho(i, j) = 0.0;
@@ -299,7 +299,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // collision
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) if (NX * NY > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index i = 0; i < NX; ++i) {
         for (Index j = 0; j < NY; ++j) {
           for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
@@ -311,7 +311,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // = Boundary on top =======================================================
-#pragma omp parallel for
+#pragma omp parallel for if (NX > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index i = 0; i < NX; ++i) {
         const Index j = NY - 1;
         for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
@@ -337,7 +337,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // = Boundary on bottom ====================================================
-#pragma omp parallel for
+#pragma omp parallel for if (NX > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index i = 0; i < NX; ++i) {
         const Index j = 0;
         for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
@@ -359,7 +359,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // = Boundary on left ======================================================
-#pragma omp parallel for
+#pragma omp parallel for if (NY > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index j = 0; j < NY; ++j) {
         for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
           // Periodic
@@ -368,7 +368,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // = Boundary on right =====================================================
-#pragma omp parallel for
+#pragma omp parallel for if (NY > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index j = 0; j < NY; ++j) {
         for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
           // Periodic
@@ -377,7 +377,7 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
       }
 
       // streaming
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) if (NX * NY > LBM_PARALLEL_THRESHOLD_COUNT)
       for (Index i = 0; i < NX; ++i) {
         for (Index j = 0; j < NY; ++j) {
           for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
@@ -393,8 +393,11 @@ static void bench_for_each_inline(benchmark::State& state) noexcept {
   }
 }
 
-BENCHMARK(bench_for_each_std_algo)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_for_each_omp_for)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_for_each_inline)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_for_each_std_algo)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_for_each_omp_for)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
+// BENCHMARK(bench_for_each_inline)->Iterations(10)->Repetitions(5)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_for_each_std_algo)->Iterations(10)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_for_each_omp_for)->Iterations(10)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_for_each_inline)->Iterations(10)->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
