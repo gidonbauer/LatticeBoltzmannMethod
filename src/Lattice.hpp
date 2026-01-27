@@ -1,8 +1,6 @@
 #ifndef LATTICE_BOLTZMANN_METHOD_LATTICE_HPP_
 #define LATTICE_BOLTZMANN_METHOD_LATTICE_HPP_
 
-#include <numbers>
-
 #include <Igor/Logging.hpp>
 #include <Igor/Math.hpp>
 
