@@ -12,16 +12,16 @@
 // = Setup =========================================================================================
 using Float                 = double;
 constexpr Index NY          = 100;
-constexpr Index NX          = 10 * (NY - 1) + 1;
+constexpr Index NX          = 5 * (NY - 1) + 1;
 
 constexpr Index NSTEPS      = 10000;
 constexpr Index WRITE_STEPS = 100;
 
 constexpr Float X_MIN       = 0.0;  // Physical domain size
-constexpr Float X_MAX       = 10.0;
+constexpr Float X_MAX       = 5.0;
 constexpr Float Y_MIN       = 0.0;
 constexpr Float Y_MAX       = 1.0;
-constexpr Float T_END       = 10.0;        // Physical t_end
+constexpr Float T_END       = 10.0;        // 10.0;        // Physical t_end
 constexpr Float U_IN        = 1.0;         // Physical wall velocity
 constexpr Float RHO         = 0.9;         // Physical density
 constexpr Float NU          = 1e-3 / RHO;  // Physical kinematic viscosity
@@ -187,7 +187,6 @@ auto main() -> int {
     for_each<0, NX>([&](Index i) {
       const Index j = NY - 1;
       for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-#if 1
         // Bounce back
         switch (q) {
           case lattice.N:
@@ -202,26 +201,6 @@ auto main() -> int {
             break;
           default: break;
         }
-#else
-        // Bounce back moving wall
-        switch (q) {
-          case lattice.N:
-          case lattice.NW:
-          case lattice.NE:
-            {
-              const Index ii               = i + static_cast<Index>(lattice.cU[q]);
-              const Index jj               = j + static_cast<Index>(lattice.cV[q]);
-              const size_t q_inv           = lattice.inverse_direction[q];
-
-              const Float moving_wall_corr = 2.0 * lattice.w[q] * lattice.rho(i, j) *
-                                             (lattice.cU[q] * convert.velocity_p2l(U_WALL)) /
-                                             Igor::sqr(lattice.params.cs);
-              lattice.f_star(ii, jj)[q_inv] = lattice.f_star(i, j)[q] - moving_wall_corr;
-            }
-            break;
-          default: break;
-        }
-#endif
       }
     });
 
@@ -248,58 +227,59 @@ auto main() -> int {
 
     // = Boundary on left ======================================================
     for_each<0, NY>([&](Index j) {
-#if 0
       const Index i = 0;
       for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-        // Bounce back
+        // Bounce back moving wall
         switch (q) {
           case lattice.W:
           case lattice.SW:
           case lattice.NW:
             {
-              const Index ii                = i + static_cast<Index>(lattice.cU[q]);
-              const Index jj                = j + static_cast<Index>(lattice.cV[q]);
-              const size_t q_inv            = lattice.inverse_direction[q];
-              lattice.f_star(ii, jj)[q_inv] = lattice.f_star(i, j)[q];
+              const Index ii               = i + static_cast<Index>(lattice.cU[q]);
+              const Index jj               = j + static_cast<Index>(lattice.cV[q]);
+              const size_t q_inv           = lattice.inverse_direction[q];
+
+              const Float y                = y_physical(j);
+              const Float U                = -6.0 * (y * y - y);
+              const Float moving_wall_corr = 2.0 * lattice.w[q] * lattice.rho(i, j) *
+                                             (lattice.cU[q] * convert.velocity_p2l(U)) /
+                                             Igor::sqr(lattice.params.cs);
+              lattice.f_star(ii, jj)[q_inv] = lattice.f_star(i, j)[q] - moving_wall_corr;
             }
             break;
           default: break;
         }
       }
-#else
-      for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-        // Periodic
-        lattice.f_star(-1, j)[q] = lattice.f_star(NX - 1, j)[q];
-      }
-#endif
     });
 
     // = Boundary on right =====================================================
     for_each<0, NY>([&](Index j) {
-#if 0
       const Index i = NX - 1;
       for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-        // Bounce back
+        // Anti-bounce back
         switch (q) {
           case lattice.E:
           case lattice.SE:
           case lattice.NE:
             {
-              const Index ii                = i + static_cast<Index>(lattice.cU[q]);
-              const Index jj                = j + static_cast<Index>(lattice.cV[q]);
-              const size_t q_inv            = lattice.inverse_direction[q];
-              lattice.f_star(ii, jj)[q_inv] = lattice.f_star(i, j)[q];
+              const Index ii     = i + static_cast<Index>(lattice.cU[q]);
+              const Index jj     = j + static_cast<Index>(lattice.cV[q]);
+              const size_t q_inv = lattice.inverse_direction[q];
+
+              const Float U_wall = lattice.U(i, j);
+              const Float V_wall = lattice.V(i, j);
+              const Float corr =
+                  2.0 * lattice.w[q] * lattice.rho(i, j) *
+                  (1.0 +
+                   Igor::sqr(lattice.cU[q] * U_wall + lattice.cV[q] * V_wall) /
+                       (2.0 * Igor::sqr(Igor::sqr(lattice.params.cs))) -
+                   (Igor::sqr(U_wall) + Igor::sqr(V_wall)) / (2.0 * Igor::sqr(lattice.params.cs)));
+              lattice.f_star(ii, jj)[q_inv] = -lattice.f_star(i, j)[q] + corr;
             }
             break;
           default: break;
         }
       }
-#else
-      for (size_t q = 0; q < lattice.NUM_VEL; ++q) {
-        // Periodic
-        lattice.f_star(NX, j)[q] = lattice.f_star(0, j)[q];
-      }
-#endif
     });
 
     streaming(lattice);
